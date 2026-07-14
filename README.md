@@ -24,12 +24,7 @@ Mobile-first responsive web app. No build step, no API keys, no billing.
 - Mocked email sign-up/login (stored locally on the device).
 
 ## Run it
-Geolocation and live updates work best when served over `localhost`. From this folder:
-
-```powershell
-# Option A — Python (most machines have it)
-python -m http.server 5173
-# then open http://localhost:5173
+Live Link --> https://her-route-590a0.web.app
 
 # Option B — Node
 npx serve -l 5173
