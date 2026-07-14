@@ -4,7 +4,8 @@
 
 **Her Route** is a community-driven women's safety platform that empowers users to share location-based safety insights in real-time. The app helps women make informed decisions about their daily movements by providing crowd-sourced safety ratings and incident reports for public spaces.
 
-**[🚀 Live App](https://her-route-590a0.web.app)** — Try it now!
+**[🚀 Live App](https://her-route-590a0.web.app)** — Try it now, P.S : It is designed for mobile first users
+
 
 ---
 
