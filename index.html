@@ -1,0 +1,252 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#e040a0" />
+  <title>her route — safety, shared.</title>
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="apple-touch-icon" href="assets/icon.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="dns-prefetch" href="https://basemaps.cartocdn.com" />
+  <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
+
+  <!-- Firebase modules: browser starts downloading these the moment HTML is parsed,
+       so Store.init() finds them already cached when DOMContentLoaded fires. -->
+  <link rel="modulepreload" crossorigin href="https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js" />
+  <link rel="modulepreload" crossorigin href="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js" />
+  <link rel="modulepreload" crossorigin href="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js" />
+
+  <!-- Text fonts: async — system-font fallback is acceptable while they load -->
+  <link href="https://fonts.googleapis.com/css2?family=Chewy&family=DM+Sans:opsz,wght@9..40,400..900&display=swap"
+        rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Chewy&family=DM+Sans:opsz,wght@9..40,400..900&display=swap" rel="stylesheet" /></noscript>
+  <!-- Icon font: blocking — icons have no text fallback; preconnect above keeps this fast -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+        rel="stylesheet" />
+
+  <!-- Leaflet CSS preloaded non-blocking; map isn't shown until auth resolves anyway -->
+  <link rel="preload" as="style" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" /></noscript>
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- Inline splash styles: zero external deps so it renders on the very first frame -->
+  <style id="splash-css">
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      background: linear-gradient(160deg, #fef7ff 0%, #fdeefa 60%, #f3e7ff 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity .35s ease;
+    }
+    #splash.out { opacity: 0; pointer-events: none; }
+    #splash .sp-logo { width: 170px; max-width: 70%; border-radius: 20px; box-shadow: 0 10px 30px rgba(124,82,170,.2); }
+    #splash .sp-ring {
+      width: 34px; height: 34px; margin-top: 28px; border-radius: 50%;
+      border: 3px solid rgba(224,64,160,.18); border-top-color: #e040a0;
+      animation: sp-spin .75s linear infinite;
+    }
+    @keyframes sp-spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- ============ SPLASH ============ -->
+  <div id="splash" role="status" aria-label="Loading her route">
+    <img class="sp-logo" src="assets/logo.png" alt="her route" />
+    <div class="sp-ring" aria-hidden="true"></div>
+  </div>
+
+  <!-- ============ AUTH ============ -->
+  <div id="auth" class="auth">
+    <div class="auth-blobs" aria-hidden="true">
+      <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span>
+    </div>
+
+    <div class="auth-card">
+      <img class="auth-logo-img" src="assets/logo.png" alt="her route" />
+      <p class="auth-tagline">Know before you go. Safety, shared by women.</p>
+
+      <h2 id="auth-title">Welcome back</h2>
+      <p class="sub" id="auth-sub">Sign in to see real-time safety ratings near you.</p>
+
+      <form id="auth-form" novalidate>
+        <div class="field" id="name-field">
+          <label for="auth-name">Name</label>
+          <div class="input-wrap">
+            <span class="material-symbols-outlined">person</span>
+            <input type="text" id="auth-name" placeholder="Your first name" autocomplete="given-name" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="auth-email">Email</label>
+          <div class="input-wrap">
+            <span class="material-symbols-outlined">mail</span>
+            <input type="email" id="auth-email" placeholder="you@example.com" autocomplete="email" inputmode="email" required />
+          </div>
+        </div>
+        <div class="field">
+          <label for="auth-pass">Password</label>
+          <div class="input-wrap">
+            <span class="material-symbols-outlined">lock</span>
+            <input type="password" id="auth-pass" placeholder="••••••••" autocomplete="current-password" required />
+            <button type="button" id="pass-toggle" class="pass-toggle" aria-label="Show password">
+              <span class="material-symbols-outlined">visibility</span>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn" id="auth-submit">Sign in</button>
+      </form>
+
+      <div class="auth-toggle" id="auth-toggle"></div>
+
+      <div class="auth-divider"><span>or</span></div>
+      <button class="btn google-btn" id="auth-google" type="button">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="auth-note"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:-3px">lock</span> Secured by Firebase · your data is private &amp; encrypted</div>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app" class="shell hidden">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src="assets/logo.png" alt="" /> her route</div>
+    </header>
+
+    <main class="content">
+      <!-- MAP -->
+      <section id="view-map" class="view active">
+        <div id="map"></div>
+        <button class="city-pill" id="city-pill" aria-label="Change city">
+          <span class="material-symbols-outlined fill">location_on</span>
+          <span class="txt" id="city-pill-label">Set your city</span>
+          <span class="material-symbols-outlined">expand_more</span>
+        </button>
+        <button class="locate-btn" id="locate" aria-label="Find my location">
+          <span class="material-symbols-outlined fill">my_location</span>
+        </button>
+        <button class="sos-btn" id="sos-btn" aria-label="Share something that happened near you">
+          <span class="material-symbols-outlined">sos</span>
+        </button>
+      </section>
+
+      <!-- EXPLORE -->
+      <section id="view-explore" class="view">
+        <div class="searchbar">
+          <div class="search-inner">
+            <span class="material-symbols-outlined search-ico">search</span>
+            <input type="text" id="search" placeholder="Search a place, area or locality…" aria-label="Search places" />
+          </div>
+        </div>
+        <div class="chips" id="type-chips"></div>
+        <div class="pad" id="explore-list"></div>
+      </section>
+
+      <!-- ADD -->
+      <section id="view-add" class="view">
+        <div class="pad" id="add-container"></div>
+      </section>
+
+      <!-- DETAIL -->
+      <section id="view-detail" class="view"></section>
+
+      <!-- PROFILE -->
+      <section id="view-profile" class="view"></section>
+    </main>
+
+    <nav class="bottomnav" aria-label="Primary">
+      
+      <button data-nav="map" class="active" aria-label="Map"><span class="material-symbols-outlined ic">map</span><span class="lbl">Map</span></button>
+      <button data-nav="explore" aria-label="Explore"><span class="material-symbols-outlined ic">search</span><span class="lbl">Explore</span></button>
+      <button data-nav="add" class="fab" aria-label="Add a rating"><span class="material-symbols-outlined">add</span></button>
+      <button data-nav="alerts" aria-label="Community updates"><span class="material-symbols-outlined ic">notifications</span><span class="lbl">Updates</span></button>
+      <button data-nav="profile" aria-label="Your profile"><span class="material-symbols-outlined ic">person</span><span class="lbl">You</span></button>
+    </nav>
+  </div>
+
+  <!-- ============ INCIDENT OVERLAY ============ -->
+  <!-- Sits above the map. pointer-events:none on the overlay itself lets the map stay
+       pannable. Only the header and bottom form panel capture pointer events. -->
+  <div id="incident-overlay" class="incident-overlay hidden">
+    <div class="inc-header">
+      <div class="inc-header-text">
+        <span class="material-symbols-outlined">share_location</span>
+        Move the map to where it happened
+      </div>
+      <button class="icon-btn inc-cancel" id="cancel-incident" aria-label="Cancel">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="crosshair-zone" aria-hidden="true">
+      <div class="crosshair"><span class="material-symbols-outlined">add</span></div>
+    </div>
+    <div class="inc-bottom">
+      <div class="inc-bottom-inner">
+        <div class="inc-drag-handle"></div>
+        <div class="section-title" style="margin-bottom:10px">What happened? (tap all that apply)</div>
+        <div class="check-grid" id="inc-types"></div>
+        <div class="field" style="margin-top:14px">
+          <textarea id="inc-note" rows="2" maxlength="280"
+            placeholder="Brief description… (optional, max 280 chars)"></textarea>
+        </div>
+        <button class="btn sos-submit" id="submit-incident" disabled>
+          <span class="material-symbols-outlined">campaign</span>
+          Share with nearby women
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PIN PICKER OVERLAY ============ -->
+  <div id="pin-overlay" class="incident-overlay hidden">
+    <div class="inc-header">
+      <div class="inc-header-text">
+        <span class="material-symbols-outlined fill">location_on</span>
+        Pan the map to your place
+      </div>
+      <button class="icon-btn inc-cancel" id="cancel-pin" aria-label="Cancel">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="crosshair-zone" aria-hidden="true">
+      <div class="crosshair pin-crosshair">
+        <span class="material-symbols-outlined fill">location_on</span>
+      </div>
+    </div>
+    <div class="inc-bottom">
+      <div class="inc-bottom-inner">
+        <div class="inc-drag-handle"></div>
+        <p style="font-size:14px;color:var(--muted);margin-bottom:14px;line-height:1.5">Move the map so the pin is right on your place, then tap Confirm.</p>
+        <button class="btn" id="confirm-pin">
+          <span class="material-symbols-outlined">check_circle</span>
+          Confirm this location
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ONBOARDING (new users) ============ -->
+  <div id="onboard" class="onboard hidden"></div>
+
+  <!-- ============ CITY SWITCHER ============ -->
+  <div id="city-modal" class="city-modal hidden"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+  <script src="js/geo.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/onboarding.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

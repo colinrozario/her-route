@@ -1,0 +1,99 @@
+rules_version = '2';
+
+// Her Route — Firestore security rules (subcollection model)
+// Reads are public (safety ratings are meant to be seen by everyone).
+// Writes require real Firebase Auth (email/password or Google).
+// Reports are immutable once written; userId must match the writer's UID.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Per-user profile/onboarding state — only the account owner may read or write.
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      // Allow write from owner; also allow rate-limit stamp (lastReportAt) written
+      // during addReport/addIncident transactions where userId == uid.
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /places/{placeId} {
+      allow read: if true;
+
+      allow create: if request.auth != null && isValidPlace(request.resource.data);
+
+      // Only snapshot and/or geohash may change; report count can never decrease.
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['snapshot', 'geohash'])
+        && request.resource.data.snapshot.count is int
+        && request.resource.data.snapshot.count >= resource.data.snapshot.count;
+
+      allow delete: if false;
+
+      match /reports/{reportId} {
+        allow read: if true;
+        allow create: if request.auth != null
+          && isValidReport(request.resource.data, placeId)
+          && notRateLimited(request.auth.uid);
+        allow update, delete: if false;   // reports are immutable
+      }
+    }
+
+    // Collection-group queries (alerts feed, "your contributions") need this
+    // recursive wildcard — the nested match above doesn't cover them.
+    match /{path=**}/reports/{reportId} {
+      allow read: if true;
+    }
+
+    // Quick incident alerts — public read, authenticated create only.
+    match /incidents/{incidentId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && isValidIncident(request.resource.data)
+        && notRateLimited(request.auth.uid);
+      allow update, delete: if false;
+    }
+
+    // Everything else denied by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Block writes if the user submitted a report or incident within the last 2 minutes.
+    // lastReportAt is a server Timestamp written by addReport() / addIncident().
+    function notRateLimited(uid) {
+      let u = get(/databases/$(database)/documents/users/$(uid)).data;
+      return !('lastReportAt' in u)
+        || request.time > u.lastReportAt + duration.value(2, 'm');
+    }
+
+    function isValidPlace(d) {
+      return d.keys().hasAll(['id', 'name', 'type', 'lat', 'lng', 'snapshot'])
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+        && d.type is string && d.type.size() <= 40
+        && d.lat is number && d.lng is number
+        && d.snapshot.count is int
+        // geohash is required on new places for spatial queries; validated if present
+        && (!('geohash' in d) || (d.geohash is string && d.geohash.size() >= 1 && d.geohash.size() <= 12));
+    }
+
+    function isValidIncident(d) {
+      return d.keys().hasAll(['id', 'lat', 'lng', 'geohash', 'types', 'userId', 'createdAt'])
+        && d.userId == request.auth.uid
+        && d.lat is number && d.lng is number
+        && d.geohash is string && d.geohash.size() >= 1 && d.geohash.size() <= 12
+        && d.types is list && d.types.size() >= 1 && d.types.size() <= 10
+        && (!('note' in d) || (d.note is string && d.note.size() <= 280))
+        && (!('userName' in d) || d.userName is string);
+    }
+
+    function isValidReport(d, pid) {
+      return d.keys().hasAll(['id', 'placeId', 'userId', 'dimensions', 'createdAt', 'incidentCount', 'hasIncident'])
+        && d.placeId == pid
+        && d.userId == request.auth.uid        // report must belong to the authenticated writer
+        && d.userId is string
+        && d.dimensions is map
+        && d.incidentCount is int
+        && d.hasIncident is bool
+        && (!('review' in d.keys()) || (d.review is string && d.review.size() <= 2000));
+    }
+  }
+}

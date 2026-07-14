@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "hasIncident", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
