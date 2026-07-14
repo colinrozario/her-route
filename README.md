@@ -93,6 +93,33 @@ npx serve -l 5173
 
 ---
 
+## Setting Up Firebase Locally
+
+### Secure Configuration (Important!)
+
+To avoid exposing API keys:
+
+1. **Copy the template:**
+   ```bash
+   cp js/firebase-config.template.js js/firebase-config.js
+   ```
+
+2. **Get your Firebase config:**
+   - Go to [Firebase Console](https://console.firebase.google.com)
+   - Your project → Project Settings → Web apps → firebaseConfig
+   - Copy all values into `js/firebase-config.js`
+
+3. **Never commit this file:**
+   - `js/firebase-config.js` is in `.gitignore` — it won't be pushed to Git
+   - Only `js/firebase-config.template.js` is version controlled
+
+4. **Enable Firestore:**
+   - Firebase Console → Build → Firestore Database
+   - Choose a region (e.g., `asia-south1` for India)
+   - Start in **test mode** (update rules later for production)
+
+---
+
 ## Project Structure
 
 ```
